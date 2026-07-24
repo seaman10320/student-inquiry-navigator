@@ -42,16 +42,39 @@ function detectPrefilledAnswers(query) {
   const collegeGroup = detectCollegeGroup(query)
   if (collegeGroup) answers.collegeGroup = collegeGroup
 
-  if (includesAny(query, ['입대휴학', '군 휴학', '군대 때문에 쉬'])) answers.leaveType = 'military'
+  if (includesAny(query, ['입대휴학', '군 휴학', '군대 때문에 쉬', '입대 때문에 학교', '군 복무 때문에 휴학'])) answers.leaveType = 'military'
   else if (includesAny(query, ['질병휴학', '아파서 휴학', '치료 때문에 쉬'])) answers.leaveType = 'illness'
   else if (includesAny(query, ['임신휴학', '출산휴학', '육아휴학'])) answers.leaveType = 'family'
   else if (includesAny(query, ['창업휴학'])) answers.leaveType = 'startup'
   else if (includesAny(query, ['일반휴학', '개인 사정으로 쉬'])) answers.leaveType = 'general'
 
-  if (includesAny(query, ['군 복학', '전역', '제대'])) answers.returnType = 'military'
+  if (includesAny(query, [
+    '군 복학',
+    '전역',
+    '제대',
+    '군 복무를 마치',
+    '군 복무 마치',
+    '군 복무가 끝',
+    '군대 다녀왔',
+    '군대를 다녀왔',
+  ])) answers.returnType = 'military'
+  else if (includesAny(query, ['일반 복학'])) answers.returnType = 'general'
+
   if (includesAny(query, ['자퇴했', '자퇴 후'])) answers.separationReason = 'withdrawal'
   if (includesAny(query, ['미복학 제적', '미등록 제적'])) answers.separationReason = 'unregistered'
   if (includesAny(query, ['학사경고', '전과목 과락'])) answers.separationReason = 'academic'
+  if (includesAny(query, ['징계 퇴학', '징계로 제적'])) answers.separationReason = 'disciplinary'
+
+  const paidTuition = query.includes('등록금')
+    && includesAny(query, ['등록금을 냈', '등록금은 이미 냈', '등록금 납부', '등록금을 납부', '등록금 낸 상태'])
+  const receivedScholarship = query.includes('장학금')
+    && includesAny(query, ['장학금도 받', '장학금을 받', '장학금 수혜', '장학금에 선발'])
+
+  if (paidTuition && receivedScholarship) answers.tuitionScholarship = 'both'
+  else if (paidTuition) answers.tuitionScholarship = 'tuition'
+  else if (receivedScholarship) answers.tuitionScholarship = 'scholarship'
+
+  if (includesAny(query, ['외국인 유학생', '외국인 학생'])) answers.international = 'yes'
 
   return answers
 }
@@ -113,6 +136,11 @@ export function analyzeInquiry(rawQuery) {
 
   const prefilledAnswers = detectPrefilledAnswers(normalizedQuery)
   const questions = collectQuestions(matchedRoutes, prefilledAnswers)
+  const inferredContext = Object.entries(prefilledAnswers).map(([questionId, value]) => ({
+    id: questionId,
+    label: QUESTION_LIBRARY[questionId]?.label ?? questionId,
+    value: answerLabel(questionId, value),
+  }))
 
   return {
     status: 'needs_clarification',
@@ -121,10 +149,11 @@ export function analyzeInquiry(rawQuery) {
     topicIds: matchedRoutes.map((route) => route.id),
     topics: matchedRoutes.map(({ id, label, overview }) => ({ id, label, overview })),
     prefilledAnswers,
+    inferredContext,
     questions,
     message: matchedRoutes.length > 1
-      ? `${matchedRoutes.map((route) => route.label).join(' · ')} 절차가 함께 포함된 복합 문의입니다. 선후관계와 담당 부서를 함께 정리합니다.`
-      : `${matchedRoutes[0].label} 절차로 분석했습니다. 정확한 안내를 위해 몇 가지만 확인합니다.`,
+      ? `${matchedRoutes.map((route) => route.label).join(' · ')} 절차가 함께 포함된 복합 문의입니다. 문장에서 확인되지 않은 조건만 추가로 묻습니다.`
+      : `${matchedRoutes[0].label} 절차로 분석했습니다. 문장에서 확인되지 않은 조건만 추가로 묻습니다.`,
   }
 }
 

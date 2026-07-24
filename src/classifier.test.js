@@ -40,6 +40,19 @@ test('복학 문의에서 군 복학 서류를 안내한다', () => {
   assert.match(result.sections[0].documents.join(' '), /전역증/)
 })
 
+test('군 복무를 마쳤다는 문장에서 군 복학을 미리 확인하고 같은 질문을 반복하지 않는다', () => {
+  const result = analyzeInquiry('군 복무를 마치고 다음 학기에 복학하려고 합니다. 어떤 서류를 준비해야 하나요?')
+  assert.equal(result.prefilledAnswers.returnType, 'military')
+  assert.ok(result.inferredContext.some((item) => item.id === 'returnType' && item.value === '군 복학'))
+  assert.ok(!result.questions.some((question) => question.id === 'returnType'))
+})
+
+test('등록금 납부와 장학금 수혜를 문장에서 함께 추출한다', () => {
+  const result = analyzeInquiry('등록금은 이미 냈고 장학금도 받았습니다. 개인 사정으로 이번 학기를 휴학하려고 합니다.')
+  assert.equal(result.prefilledAnswers.tuitionScholarship, 'both')
+  assert.ok(!result.questions.some((question) => question.id === 'tuitionScholarship'))
+})
+
 test('자퇴 후 다시 다니려는 표현은 재입학으로 분석한다', () => {
   const result = analyzeInquiry('2년 전에 자퇴했는데 다시 학교를 다니고 싶습니다.')
   assert.deepEqual(result.topicIds, ['readmission'])
@@ -173,4 +186,21 @@ test('호환 분류 함수와 텍스트 결과가 시연에 필요한 핵심 정
   assert.match(text, /휴학 처리 경로/)
   assert.match(text, /담당 후보/)
   assert.match(text, /공식 근거 검증일/)
+})
+
+test('화면의 여섯 시연 예시가 단일 절차부터 세 절차까지 정확히 구분된다', () => {
+  const examples = [
+    ['군 복무를 마치고 다음 학기에 복학하려고 합니다. 어떤 서류를 준비해야 하나요?', ['return']],
+    ['2년 전에 자퇴했는데 다시 학교에 다니고 싶습니다. 재입학이 가능한가요?', ['readmission']],
+    ['등록금은 이미 냈고 장학금도 받았습니다. 개인 사정으로 이번 학기를 휴학하려면 어떤 절차가 필요한가요?', ['leave']],
+    ['이번 학기 등록금을 낸 상태에서 자퇴하려고 합니다. 필요한 서류와 등록금 반환 절차가 궁금합니다.', ['withdrawal']],
+    ['현재 휴학 중입니다. 다음 학기에 복학하면서 다른 학과로 전과하려면 무엇부터 해야 하나요?', ['return', 'transfer']],
+    ['이번 학기에 휴학하고 다음 학기에 복학한 뒤 전과하려면 어떤 순서로 진행해야 하나요?', ['leave', 'return', 'transfer']],
+  ]
+
+  for (const [query, expectedTopicIds] of examples) {
+    const result = analyzeInquiry(query)
+    assert.equal(result.status, 'needs_clarification')
+    assert.deepEqual(result.topicIds, expectedTopicIds)
+  }
 })

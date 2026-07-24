@@ -7,28 +7,28 @@ import {
 
 const samples = [
   {
-    label: '휴학 + 장학금',
-    text: '개인 사정으로 이번 학기를 쉬려고 합니다. 등록금은 이미 냈고 장학금도 받았는데 어떻게 해야 하나요?',
-  },
-  {
-    label: '자퇴 + 등록금',
-    text: '이번 학기 등록금을 낸 상태인데 자퇴하려고 합니다. 필요한 서류와 환불 절차가 궁금해요.',
-  },
-  {
-    label: '군 복학',
-    text: '군 복무를 마치고 다음 학기에 복학하려고 하는데 무엇을 준비해야 하나요?',
+    label: '전역 후 군 복학',
+    text: '군 복무를 마치고 다음 학기에 복학하려고 합니다. 어떤 서류를 준비해야 하나요?',
   },
   {
     label: '자퇴 후 재입학',
     text: '2년 전에 자퇴했는데 다시 학교에 다니고 싶습니다. 재입학이 가능한가요?',
   },
   {
-    label: '복학 + 전과',
-    text: '지금 휴학 중인데 다음 학기에 복학하면서 다른 학과로 전과하고 싶습니다.',
+    label: '등록금·장학금 후 휴학',
+    text: '등록금은 이미 냈고 장학금도 받았습니다. 개인 사정으로 이번 학기를 휴학하려면 어떤 절차가 필요한가요?',
   },
   {
-    label: '3개 절차 연결',
-    text: '한 학기 휴학한 뒤 복학하면서 학과를 바꾸려면 어떤 순서로 해야 하나요?',
+    label: '등록금 납부 후 자퇴',
+    text: '이번 학기 등록금을 낸 상태에서 자퇴하려고 합니다. 필요한 서류와 등록금 반환 절차가 궁금합니다.',
+  },
+  {
+    label: '휴학 중 복학·전과',
+    text: '현재 휴학 중입니다. 다음 학기에 복학하면서 다른 학과로 전과하려면 무엇부터 해야 하나요?',
+  },
+  {
+    label: '휴학→복학→전과',
+    text: '이번 학기에 휴학하고 다음 학기에 복학한 뒤 전과하려면 어떤 순서로 진행해야 하나요?',
   },
 ]
 
@@ -146,7 +146,7 @@ function App() {
             <small>학적변동 절차 내비게이터</small>
           </span>
         </a>
-        <span className="prototype-badge">실시간 시연 프로토타입</span>
+        <span className="prototype-badge">공식 안내 기반 프로토타입</span>
       </header>
 
       <main>
@@ -219,7 +219,7 @@ function App() {
               <p id="inquiry-error" className="field-error" role="alert">{error && <><Icon name="warning" /> {error}</>}</p>
 
               <div className="sample-block">
-                <span>복합 문의 시연 예시</span>
+                <span>상황별 시연 예시</span>
                 <div className="sample-list">
                   {samples.map((sample) => (
                     <button type="button" key={sample.label} onClick={() => selectSample(sample.text)}>
@@ -239,7 +239,7 @@ function App() {
 
             <div className="privacy-notice">
               <Icon name="lock" />
-              <p><strong>이름·학번·전화번호를 입력하지 마세요.</strong> 판단에 필요한 학적 상황만 선택하며 입력과 결과는 저장하지 않습니다.</p>
+              <p><strong>이름·학번·전화번호를 입력하지 마세요.</strong> 현재 시연 버전은 입력과 결과를 브라우저 저장소에 보관하지 않습니다.</p>
             </div>
           </section>
 
@@ -323,6 +323,20 @@ function ClarificationState({ analysis, answers, setAnswers, error, onConfirm, r
           </div>
         ))}
       </div>
+
+      {(analysis.inferredContext ?? []).length > 0 && (
+        <section className="inferred-context" aria-labelledby="inferred-context-title">
+          <div>
+            <span>문장 분석</span>
+            <h3 id="inferred-context-title">이미 확인한 내용은 다시 묻지 않아요</h3>
+          </div>
+          <ul>
+            {(analysis.inferredContext ?? []).map((item) => (
+              <li key={item.id}><b>{item.label}</b><span>{item.value}</span></li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <div className="question-stack">
         {analysis.questions.map((question, questionIndex) => (
