@@ -145,7 +145,54 @@ test('소속 단과대학을 모르면 세 교학팀 후보를 보여준다', ()
 test('분류할 수 없는 문의는 공식 대표번호로 안내한다', () => {
   const result = analyzeInquiry('학교 근처 자취방을 추천해 주세요.')
   assert.equal(result.status, 'unmatched')
+  assert.equal(result.coverage, 'unsupported')
   assert.equal(result.representativePhone, REPRESENTATIVE_PHONE)
+})
+
+test('재수강 문의는 지원하지 않는 분야로 표시하고 답을 생성하지 않는다', () => {
+  const result = analyzeInquiry('B-를 받은 과목도 재수강이 될까요?')
+  assert.equal(result.status, 'unmatched')
+  assert.equal(result.coverage, 'unsupported')
+  assert.deepEqual(result.unresolvedIntents, [
+    { id: 'courseRegistration', label: '수강신청·재수강' },
+  ])
+  assert.match(resultToText(result), /확인되지 않은 답을 생성하지 않았습니다/)
+})
+
+test('질병 결석 문의는 학적변동으로 오인하지 않고 출결 확인 대상으로 남긴다', () => {
+  const result = analyzeInquiry('질병으로 인한 결석 시 어떻게 해야 돼요?')
+  assert.equal(result.status, 'unmatched')
+  assert.equal(result.coverage, 'unsupported')
+  assert.deepEqual(result.unresolvedIntents, [
+    { id: 'attendance', label: '출결·공결' },
+  ])
+})
+
+test('휴학과 등록금 처리가 섞인 질문은 부분 안내로 구분한다', () => {
+  const analysis = analyzeInquiry('휴학하면 이미 낸 등록금은 어떻게 처리되나요?')
+  assert.equal(analysis.status, 'needs_clarification')
+  assert.equal(analysis.coverage, 'partial')
+  assert.deepEqual(analysis.topicIds, ['leave'])
+  assert.deepEqual(analysis.unresolvedIntents, [
+    { id: 'tuitionScholarship', label: '등록금·장학금·학자금대출' },
+  ])
+
+  const result = buildGuidance(analysis, {
+    collegeGroup: 'college1',
+    leaveType: 'general',
+    firstTerm: 'no',
+    tuitionScholarship: 'tuition',
+  })
+  assert.equal(result.coverage, 'partial')
+  assert.match(result.summary, /절차만 공식 안내 범위/)
+  assert.match(result.nextAction, /별도로 확인/)
+  assert.match(resultToText(result), /추가 확인 필요/)
+})
+
+test('등록금과 장학금이 단순 상황 설명이면 휴학 절차를 온전히 안내한다', () => {
+  const result = analyzeInquiry('등록금은 이미 냈고 장학금도 받았습니다. 개인 사정으로 이번 학기를 휴학하려면 어떤 절차가 필요한가요?')
+  assert.equal(result.coverage, 'full')
+  assert.deepEqual(result.unresolvedIntents, [])
 })
 
 test('빈 입력과 결과 생성 오류 경로를 구분한다', () => {

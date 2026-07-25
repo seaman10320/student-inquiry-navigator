@@ -96,7 +96,7 @@ export const QUESTION_LIBRARY = {
   tuitionScholarship: {
     id: 'tuitionScholarship',
     label: '등록금이나 장학금 처리가 함께 필요한가요?',
-    help: '휴학·자퇴 시 등록금과 장학금 처리 기준을 함께 안내합니다.',
+    help: '관련 여부를 처리 지도에 반영하며, 정확한 금액·유지·반환 기준은 공식 안내와 담당 부서에서 확인해야 합니다.',
     options: [
       { value: 'both', label: '등록금 납부·장학금 수혜 모두 해당' },
       { value: 'tuition', label: '등록금만 납부' },
