@@ -31,6 +31,19 @@ test('자퇴 문의에 공식 절차와 필요 서류를 제공한다', () => {
   assert.equal(result.contacts[0].phone, '031-280-3873')
 })
 
+test('학교를 그만두고 싶다는 일상 표현을 자퇴로 분석한다', () => {
+  const result = analyzeInquiry('서울대 붙었는데 학교 그만두고 싶어요')
+  assert.equal(result.status, 'needs_clarification')
+  assert.equal(result.coverage, 'full')
+  assert.deepEqual(result.topicIds, ['withdrawal'])
+  assert.match(result.message, /자퇴 절차로 분석/)
+})
+
+test('학교를 그만뒀다가 다시 다니려는 문장은 자퇴가 아니라 재입학으로 분석한다', () => {
+  const result = analyzeInquiry('예전에 학교를 그만뒀다가 다시 다니고 싶어요.')
+  assert.deepEqual(result.topicIds, ['readmission'])
+})
+
 test('복학 문의에서 군 복학 서류를 안내한다', () => {
   const result = clarify('전역해서 다음 학기에 다시 학교를 다니고 싶습니다.', {
     collegeGroup: 'college2',

@@ -183,7 +183,17 @@ export const ACADEMIC_ROUTES = [
     label: '자퇴',
     category: '학적변동',
     directTerms: ['자퇴', '자퇴원서'],
-    semanticPatterns: ['학교를 완전히 그만두', '학교 그만두려고', '학업을 완전히 중단', '학교를 나가려고'],
+    semanticPatterns: [
+      '학교를 완전히 그만두',
+      '학교를 그만두',
+      '학교 그만두',
+      '학교를 관두',
+      '학교 관두',
+      '학교를 그만 다니',
+      '학교 그만 다니',
+      '학업을 완전히 중단',
+      '학교를 나가려고',
+    ],
     questionIds: ['collegeGroup', 'tuitionScholarship', 'international'],
     overview: '본인 방문이 필요한 자퇴 절차와 상담·등록금 반환 조건을 안내합니다.',
     conditions: [
