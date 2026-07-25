@@ -11,6 +11,67 @@ export const REPRESENTATIVE_PHONE = '031-280-3114'
 const routeMap = new Map(ACADEMIC_ROUTES.map((route) => [route.id, route]))
 const unique = (items) => [...new Set(items)]
 
+const OUT_OF_SCOPE_INTENTS = [
+  {
+    id: 'courseRegistration',
+    label: '수강신청·재수강',
+    terms: ['재수강', '수강신청', '수강 신청', '수강정정', '수강 정정', '수강취소', '수강 취소', '폐강'],
+  },
+  {
+    id: 'attendance',
+    label: '출결·공결',
+    terms: ['결석', '출석', '공결', '병결', '지각', '조퇴'],
+  },
+  {
+    id: 'gradesGraduation',
+    label: '성적·학점·졸업',
+    terms: [
+      '졸업',
+      '졸업학점',
+      '졸업 학점',
+      '성적 이의',
+      '성적 정정',
+      '학점 인정',
+      '학점이 어떻게',
+      '평점이 어떻게',
+      '평균평점이 어떻게',
+      '평균 평점이 어떻게',
+    ],
+  },
+  {
+    id: 'tuitionScholarship',
+    label: '등록금·장학금·학자금대출',
+    terms: [
+      '학자금대출',
+      '학자금 대출',
+      '국가장학금',
+      '국가 장학금',
+      '교내장학금',
+      '교내 장학금',
+      '교외장학금',
+      '교외 장학금',
+      '등록금 환불',
+      '등록금 반환',
+      '등록금 이월',
+      '등록금 처리',
+      '등록금은 어떻게',
+      '등록금이 어떻게',
+      '등록금을 돌려',
+      '장학금 유지',
+      '장학금 취소',
+      '장학금 반환',
+      '장학금은 어떻게',
+      '장학금이 어떻게',
+      '장학금을 계속',
+    ],
+  },
+  {
+    id: 'itFacilities',
+    label: 'IT·시설·생활 지원',
+    terms: ['와이파이', 'wi-fi', 'wifi', '무선랜', '기숙사', '셔틀', '건물 위치', '강의실 위치'],
+  },
+]
+
 const answerLabels = Object.values(QUESTION_LIBRARY).reduce((labels, question) => {
   labels[question.id] = new Map(question.options.map((option) => [option.value, option.label]))
   return labels
@@ -24,6 +85,12 @@ const normalize = (value) => value
 
 function includesAny(query, terms) {
   return terms.some((term) => query.includes(normalize(term)))
+}
+
+function detectOutOfScopeIntents(query) {
+  return OUT_OF_SCOPE_INTENTS
+    .filter((intent) => includesAny(query, intent.terms))
+    .map(({ id, label }) => ({ id, label }))
 }
 
 function detectCollegeGroup(query) {
@@ -124,13 +191,19 @@ export function analyzeInquiry(rawQuery) {
 
   const normalizedQuery = normalize(query)
   const matchedRoutes = detectRoutes(normalizedQuery)
+  const unresolvedIntents = detectOutOfScopeIntents(normalizedQuery)
 
   if (matchedRoutes.length === 0) {
     return {
       status: 'unmatched',
+      coverage: 'unsupported',
       query,
-      message: '현재 시연 범위인 휴학·자퇴·복학·재입학·전과 문의를 찾지 못했습니다.',
+      unresolvedIntents,
+      message: unresolvedIntents.length > 0
+        ? `${unresolvedIntents.map((intent) => intent.label).join(' · ')} 문의는 현재 프로토타입에서 답을 생성하지 않습니다.`
+        : '현재 시연 범위인 휴학·자퇴·복학·재입학·전과 문의를 찾지 못했습니다.',
       representativePhone: REPRESENTATIVE_PHONE,
+      officialContactSource: OFFICIAL_SOURCES.contacts,
     }
   }
 
@@ -144,16 +217,20 @@ export function analyzeInquiry(rawQuery) {
 
   return {
     status: 'needs_clarification',
+    coverage: unresolvedIntents.length > 0 ? 'partial' : 'full',
     query,
     isComplex: matchedRoutes.length > 1,
     topicIds: matchedRoutes.map((route) => route.id),
     topics: matchedRoutes.map(({ id, label, overview }) => ({ id, label, overview })),
+    unresolvedIntents,
     prefilledAnswers,
     inferredContext,
     questions,
-    message: matchedRoutes.length > 1
-      ? `${matchedRoutes.map((route) => route.label).join(' · ')} 절차가 함께 포함된 복합 문의입니다. 문장에서 확인되지 않은 조건만 추가로 묻습니다.`
-      : `${matchedRoutes[0].label} 절차로 분석했습니다. 문장에서 확인되지 않은 조건만 추가로 묻습니다.`,
+    message: unresolvedIntents.length > 0
+      ? `${matchedRoutes.map((route) => route.label).join(' · ')} 절차는 안내할 수 있지만, ${unresolvedIntents.map((intent) => intent.label).join(' · ')} 내용은 담당 부서 확인이 필요합니다.`
+      : matchedRoutes.length > 1
+        ? `${matchedRoutes.map((route) => route.label).join(' · ')} 절차가 함께 포함된 복합 문의입니다. 문장에서 확인되지 않은 조건만 추가로 묻습니다.`
+        : `${matchedRoutes[0].label} 절차로 분석했습니다. 문장에서 확인되지 않은 조건만 추가로 묻습니다.`,
   }
 }
 
@@ -335,15 +412,19 @@ export function buildGuidance(analysis, selectedAnswers = {}) {
 
   return {
     status: 'guided',
+    coverage: analysis.coverage ?? 'full',
     query: analysis.query,
     isComplex: analysis.isComplex,
     topicIds: analysis.topicIds,
+    unresolvedIntents: analysis.unresolvedIntents ?? [],
     title: analysis.isComplex
       ? `${routes.map((route) => route.label).join(' → ')} 통합 처리 경로`
       : `${routes[0].label} 처리 경로`,
-    summary: analysis.isComplex
-      ? '여러 학적변동이 연결된 문의입니다. 각 절차를 따로 신청하되 아래 선후관계와 확인 항목을 함께 보세요.'
-      : `${routes[0].label} 관련 공식 안내를 학생의 다음 행동 순서로 정리했습니다.`,
+    summary: analysis.coverage === 'partial'
+      ? `${routes.map((route) => route.label).join(' · ')} 절차만 공식 안내 범위에서 정리했습니다. 함께 물어본 다른 내용은 아래의 추가 확인 항목을 확인하세요.`
+      : analysis.isComplex
+        ? '여러 학적변동이 연결된 문의입니다. 각 절차를 따로 신청하되 아래 선후관계와 확인 항목을 함께 보세요.'
+        : `${routes[0].label} 관련 공식 안내를 학생의 다음 행동 순서로 정리했습니다.`,
     context,
     coordinationNotes: coordinationNotes(analysis.topicIds),
     sections,
@@ -354,9 +435,11 @@ export function buildGuidance(analysis, selectedAnswers = {}) {
       OFFICIAL_SOURCES.regulations,
     ].filter((source, index, sources) => sources.findIndex((candidate) => candidate.url === source.url) === index),
     verifiedAt: VERIFIED_AT,
-    nextAction: answers.collegeGroup && answers.collegeGroup !== 'unknown'
-      ? '공식 안내 원문을 확인한 뒤, 필요한 경우 표시된 교학팀에 현재 상황과 확인한 내용을 함께 전달하세요.'
-      : '소속 단과대학을 확인한 뒤 해당 교학팀 연락처와 공식 안내 원문을 다시 확인하세요.',
+    nextAction: analysis.coverage === 'partial'
+      ? `아래 학적변동 절차를 먼저 확인하고, ${analysis.unresolvedIntents.map((intent) => intent.label).join(' · ')} 내용은 공식 안내 또는 담당 부서에 별도로 확인하세요.`
+      : answers.collegeGroup && answers.collegeGroup !== 'unknown'
+        ? '공식 안내 원문을 확인한 뒤, 필요한 경우 표시된 교학팀에 현재 상황과 확인한 내용을 함께 전달하세요.'
+        : '소속 단과대학을 확인한 뒤 해당 교학팀 연락처와 공식 안내 원문을 다시 확인하세요.',
   }
 }
 
@@ -368,12 +451,22 @@ export function classifyInquiry(rawQuery) {
 }
 
 export function resultToText(result) {
-  if (result.status === 'unmatched') return `${result.message}\n대표번호: ${result.representativePhone}`
+  if (result.status === 'unmatched') {
+    return [
+      '지원하지 않는 문의',
+      result.message,
+      '확인되지 않은 답을 생성하지 않았습니다.',
+      `대표번호: ${result.representativePhone}`,
+    ].join('\n')
+  }
   if (result.status !== 'guided') return result.message ?? ''
 
   const lines = [
     result.title,
     `문의: ${result.query}`,
+    ...(result.coverage === 'partial'
+      ? [`추가 확인 필요: ${result.unresolvedIntents.map((intent) => intent.label).join(', ')}`]
+      : []),
     ...result.sections.flatMap((section) => [
       `[${section.label}]`,
       `필요 서류: ${section.documents.join(', ')}`,

@@ -301,8 +301,8 @@ function ClarificationState({ analysis, answers, setAnswers, error, onConfirm, r
     <div className="clarification-state">
       <div className="result-topline">
         <span className="result-label">상황 확인</span>
-        <span className={analysis.isComplex ? 'complex-label' : 'verified-label'}>
-          {analysis.isComplex ? '복합 문의 감지' : '절차 후보 확인'}
+        <span className={analysis.coverage === 'partial' ? 'partial-label' : analysis.isComplex ? 'complex-label' : 'verified-label'}>
+          {analysis.coverage === 'partial' ? '일부 안내 가능' : analysis.isComplex ? '복합 문의 감지' : '안내 가능'}
         </span>
       </div>
 
@@ -313,6 +313,12 @@ function ClarificationState({ analysis, answers, setAnswers, error, onConfirm, r
       </div>
 
       <div className="query-box"><span>입력한 상황</span><p>“{analysis.query}”</p></div>
+
+      <CoverageNotice
+        coverage={analysis.coverage}
+        supportedTopics={analysis.topics}
+        unresolvedIntents={analysis.unresolvedIntents}
+      />
 
       <div className="detected-topics">
         {analysis.topics.map((topic, index) => (
@@ -376,7 +382,9 @@ function GuidanceResult({ result, reset }) {
     <div className="guidance-result">
       <div className="result-topline">
         <span className="result-label">나의 학적변동 처리 지도</span>
-        <span className="verified-label">공식 안내 기반</span>
+        <span className={result.coverage === 'partial' ? 'partial-label' : 'verified-label'}>
+          {result.coverage === 'partial' ? '일부 안내 + 추가 확인' : '안내 가능 · 공식 근거'}
+        </span>
       </div>
 
       <div className="guidance-hero">
@@ -389,6 +397,12 @@ function GuidanceResult({ result, reset }) {
       </div>
 
       <div className="query-box"><span>나의 문의</span><p>“{result.query}”</p></div>
+
+      <CoverageNotice
+        coverage={result.coverage}
+        supportedTopics={result.sections}
+        unresolvedIntents={result.unresolvedIntents}
+      />
 
       {result.context.length > 0 && (
         <section className="context-summary">
@@ -488,14 +502,62 @@ function GuidanceResult({ result, reset }) {
 function FallbackState({ result, reset }) {
   return (
     <div className="fallback-state">
-      <span className="status-icon"><Icon name="search" /></span>
-      <p className="eyebrow">현재 시연 범위 밖의 문의</p>
-      <h2>학적변동 절차를 찾지 못했습니다</h2>
+      <span className="status-icon unsupported"><Icon name="warning" /></span>
+      <p className="eyebrow">지원하지 않는 문의</p>
+      <h2>확인되지 않은 답을 만들지 않았습니다</h2>
       <p>{result.message}</p>
       <div className="query-box"><span>입력한 상황</span><p>“{result.query}”</p></div>
-      <div className="representative-card"><span>학교 대표번호</span><strong>{result.representativePhone}</strong></div>
+
+      {(result.unresolvedIntents ?? []).length > 0 && (
+        <div className="unsupported-intents" aria-label="현재 지원하지 않는 문의 분야">
+          <span>확인 필요한 분야</span>
+          <div>{result.unresolvedIntents.map((intent) => <b key={intent.id}>{intent.label}</b>)}</div>
+        </div>
+      )}
+
+      <div className="fallback-scope">
+        <span>현재 상세 안내 가능</span>
+        <div>{scopeItems.map((item) => <b key={item}>{item}</b>)}</div>
+      </div>
+
+      <div className="representative-card">
+        <span>정확한 기준은 학교 공식 연락처에서 확인해 주세요</span>
+        <strong>{result.representativePhone}</strong>
+        {result.officialContactSource && (
+          <a href={result.officialContactSource.url} target="_blank" rel="noreferrer">
+            부서 통합 연락처 확인 <Icon name="external" />
+          </a>
+        )}
+      </div>
       <button className="primary-button compact" type="button" onClick={reset}>다른 상황 입력하기</button>
     </div>
+  )
+}
+
+function CoverageNotice({ coverage, supportedTopics = [], unresolvedIntents = [] }) {
+  if (coverage !== 'partial') return null
+
+  return (
+    <section className="coverage-notice" aria-label="답변 가능 범위">
+      <div className="coverage-heading">
+        <Icon name="warning" />
+        <div>
+          <span>일부 내용만 안내합니다</span>
+          <h3>지원되는 절차와 추가 확인할 내용을 나눴습니다</h3>
+        </div>
+      </div>
+      <div className="coverage-columns">
+        <div>
+          <span>이 화면에서 안내 가능</span>
+          <ul>{supportedTopics.map((topic) => <li key={topic.id}>{topic.label}</li>)}</ul>
+        </div>
+        <div>
+          <span>담당 부서에 추가 확인</span>
+          <ul>{unresolvedIntents.map((intent) => <li key={intent.id}>{intent.label}</li>)}</ul>
+        </div>
+      </div>
+      <p>추가 확인 항목은 현재 데이터로 답을 추측하지 않습니다.</p>
+    </section>
   )
 }
 
